@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package securelog;
+
+option go_package = "github.com/karasz/securelog/proto";
+
+import "google/protobuf/timestamp.proto";
+
+// InitCommitment represents the initial commitment sent to trusted server T.
+// This implements the Log File Initialization protocol from Section 4.2.
+message InitCommitment {
+  string log_id = 1;                          // Unique log identifier
+  google.protobuf.Timestamp start_time = 2;   // When the log was started
+  bytes key_a0 = 3;                           // A_0 - initial verifier chain key (32 bytes)
+  bytes key_b0 = 4;                           // B_0 - initial trusted server chain key (32 bytes)
+  uint64 update_freq = 5;                     // Key update frequency (UPD in the paper)
+}
+
+// OpenMessage records the fact that a log was opened and the first entry appended.
+message OpenMessage {
+  string log_id = 1;                          // Unique log identifier
+  google.protobuf.Timestamp open_time = 2;    // When the log was opened
+  uint64 first_index = 3;                     // Index of the opening entry
+  bytes first_tag_v = 4;                      // μ_V for the opening entry (32 bytes)
+  bytes first_tag_t = 5;                      // μ_T for the opening entry (32 bytes)
+}
+
+// CloseMessage represents the log file closure notification.
+// This implements the Log File Closure protocol from Section 4.2.
+message CloseMessage {
+  string log_id = 1;                          // Unique log identifier
+  google.protobuf.Timestamp close_time = 2;   // When the log was closed
+  uint64 final_index = 3;                     // f - index of last entry
+  bytes final_tag_v = 4;                      // μ_V,f (32 bytes)
+  bytes final_tag_t = 5;                      // μ_T,f (32 bytes)
+}
+
+// Record is the persisted form used by Store.
+// Contains both MAC chains for dual verification.
+message Record {
+  uint64 index = 1;      // Entry index
+  int64 ts = 2;          // Unix nanoseconds timestamp
+  bytes msg = 3;         // Log message
+  bytes tag_v = 4;       // μ_V,i - semi-trusted verifier chain tag (32 bytes)
+  bytes tag_t = 5;       // μ_T,i - trusted server chain tag (32 bytes)
+}
+
+// RecordBatch wraps multiple records for efficient bulk transfer
+message RecordBatch {
+  repeated Record records = 1;
+}
+
+// VerifyRequest is sent to the trusted server for log verification
+message VerifyRequest {
+  string log_id = 1;
+  repeated Record records = 2;
+}
+
+// VerifyResponse is returned by the trusted server after verification
+message VerifyResponse {
+  bool verified = 1;
+  string error_message = 2;  // Empty if verified=true
+}
